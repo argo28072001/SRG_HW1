@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
+import torchmetrics
 from thop import profile
 from melbanks import LogMelFilterBanks
 
@@ -8,12 +9,13 @@ class SpeechClassifier(pl.LightningModule):
     def __init__(self):
         super().__init__()
         
-        # Mel spectrogram layer
+        # Mel spectrogram layer using our custom implementation
         self.mel_spec = LogMelFilterBanks(
             n_fft=400,
             samplerate=16000,
             hop_length=160,
-            n_mels=80
+            n_mels=80,
+            power=2.0
         )
         
         # CNN layers
@@ -46,13 +48,13 @@ class SpeechClassifier(pl.LightningModule):
         )
         
         # Metrics
-        self.train_acc = pl.metrics.Accuracy(task='binary')
-        self.val_acc = pl.metrics.Accuracy(task='binary')
-        self.test_acc = pl.metrics.Accuracy(task='binary')
+        self.train_acc = torchmetrics.Accuracy(task='binary')
+        self.val_acc = torchmetrics.Accuracy(task='binary')
+        self.test_acc = torchmetrics.Accuracy(task='binary')
         
     def forward(self, x):
-        # Convert to mel spectrograms
-        x = self.mel_spec(x)
+        # Convert to mel spectrograms using our custom implementation
+        x = self.mel_spec(x)  # This already includes log
         # Add channel dimension
         x = x.unsqueeze(1)
         # Pass through CNN

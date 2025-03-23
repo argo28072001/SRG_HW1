@@ -5,8 +5,9 @@ import os
 
 class BinarySpeechCommandsDataset(Dataset):
     def __init__(self, root_dir, subset='training'):
-        self.dataset = SPEECHCOMMANDS(root=root_dir, download=True)
+        self.dataset = SPEECHCOMMANDS(root=root_dir, download=False)
         self.subset = subset
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
         # Filter for only "yes" and "no" samples
         self.data = []
@@ -42,4 +43,7 @@ class BinarySpeechCommandsDataset(Dataset):
         waveform, sample_rate, label, _, _ = self.dataset[dataset_idx]
         # Convert label to binary (0 for "no", 1 for "yes")
         label = 1 if label == "yes" else 0
+        # Move tensors to GPU
+        waveform = waveform.to(self.device)
+        label = torch.tensor(label, device=self.device)
         return waveform, label 

@@ -3,18 +3,40 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 import time
+import torch
 
 from dataset import BinarySpeechCommandsDataset
 from model import SpeechClassifier
+
+# Check if GPU is available
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {device}")
 
 # Data setup
 train_dataset = BinarySpeechCommandsDataset(root_dir='./data', subset='training')
 val_dataset = BinarySpeechCommandsDataset(root_dir='./data', subset='validation')
 test_dataset = BinarySpeechCommandsDataset(root_dir='./data', subset='testing')
 
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=4)
-val_loader = DataLoader(val_dataset, batch_size=32, num_workers=4)
-test_loader = DataLoader(test_dataset, batch_size=32, num_workers=4)
+# Use GPU-specific DataLoader settings
+train_loader = DataLoader(
+    train_dataset, 
+    batch_size=32, 
+    shuffle=True, 
+    num_workers=2,  # Reduced for Colab
+    pin_memory=True  # This helps speed up data transfer to GPU
+)
+val_loader = DataLoader(
+    val_dataset, 
+    batch_size=32, 
+    num_workers=2,
+    pin_memory=True
+)
+test_loader = DataLoader(
+    test_dataset, 
+    batch_size=32, 
+    num_workers=2,
+    pin_memory=True
+)
 
 # Model setup
 model = SpeechClassifier()
@@ -40,13 +62,14 @@ class TimeCallback(pl.Callback):
         epoch_time = time.time() - self.epoch_start_time
         trainer.logger.experiment.add_scalar('epoch_time', epoch_time, trainer.current_epoch)
 
-# Training
+# Training with explicit GPU settings
 trainer = pl.Trainer(
     max_epochs=30,
     callbacks=[checkpoint_callback, TimeCallback()],
     logger=logger,
-    accelerator='auto',
-    devices=1
+    accelerator='gpu',  # Explicitly specify GPU
+    devices=1,          # Number of GPUs to use
+    strategy='auto'     # Let PyTorch Lightning choose the best strategy
 )
 
 # Print model statistics
@@ -57,4 +80,4 @@ print(f"Estimated FLOPs: {model.calculate_flops():,}")
 trainer.fit(model, train_loader, val_loader)
 
 # Test the model
-trainer.test(model, test_loader) 
+trainer.test(model, test_loader)
